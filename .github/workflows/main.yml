@@ -1,0 +1,42 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: ساخت پوشه‌های اندروید (در صورت نبود)
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create . --project-name mindload --org com.mindload.app --platforms=android
+          fi
+
+      - name: نصب پکیج‌ها
+        run: flutter pub get
+
+      - name: افزودن دسترسی‌های لازم به AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if ! grep -q "RECORD_AUDIO" "$MANIFEST"; then
+            sed -i 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n    <uses-permission android:name="android.permission.CAMERA"/>\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>|' "$MANIFEST"
+          fi
+
+      - name: ساخت APK
+        run: flutter build apk --release
+
+      - name: آپلود APK به عنوان Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindload-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
